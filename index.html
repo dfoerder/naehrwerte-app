@@ -45,18 +45,50 @@ td.pct{color:var(--mut);font-size:13px;width:60px}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
 .sep{color:var(--mut);font-size:13px;margin:18px 0 8px;text-align:center}
 .foot{color:var(--mut);font-size:12px;margin-top:18px;line-height:1.4}
+.hr{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.star{border:0;background:none;font-size:22px;line-height:1;padding:0;color:var(--mut)}
+.star.on{color:#e0a33a}
+.note{font-size:12px;color:var(--mut);margin-top:4px}
+textarea{width:100%;min-height:70px;font:15px -apple-system,system-ui,sans-serif;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);margin-top:10px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn{padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--acc);font-size:15px;font-weight:600}
+.btn.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+.btn.del{color:#c0392b}
+#form{display:none;position:fixed;inset:0;background:var(--bg);overflow:auto;z-index:10;
+padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 24px)}
+#form.show{display:block}
+#form h2{margin:8px 0 12px}
+.fr{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line)}
+.fr label{flex:1;font-size:15px}
+.fr input{width:110px;padding:8px 10px;font-size:16px;text-align:right}
+.fr span{width:36px;color:var(--mut);font-size:13px}
+#form .full{margin-bottom:10px}
 </style>
 </head>
 <body>
 <h1>Nährwerte</h1>
 <div class="sub" id="cnt">pro 100 g · Richtwerte</div>
 <input id="q" type="search" placeholder="Lebensmittel suchen …" autocomplete="off">
+<div class="btns"><button class="btn" id="add">+ Eigenes Lebensmittel</button></div>
 <div class="lbl">Kategorie</div>
 <div class="chips" id="cats"></div>
 <div class="lbl">Sortieren nach Inhaltsstoff (mehrere möglich)</div>
 <div class="chips wrap" id="nuts"></div>
 <div class="hint" id="hint"></div>
 <div id="list"></div>
+<div class="lbl">Meine Daten</div>
+<div class="sub" id="ustat"></div>
+<div class="btns"><button class="btn" id="exp">Sichern (Export)</button><button class="btn" id="imp">Wiederherstellen (Import)</button></div>
+<input type="file" id="impf" accept=".json,application/json" hidden>
+<div class="note">Eigene Lebensmittel, Favoriten und Notizen bleiben nur auf diesem Gerät gespeichert und werden nirgends hochgeladen. Regelmässig sichern!</div>
+<div id="form">
+ <h2 id="ftitle">Eigenes Lebensmittel</h2>
+ <input class="full" id="fn" placeholder="Name (z.B. Omas Birchermüesli)">
+ <input class="full" id="fc" placeholder="Kategorie" list="catlist"><datalist id="catlist"></datalist>
+ <div class="sub">Werte pro 100 g. Leere Felder zählen als 0.</div>
+ <div id="ffields"></div>
+ <div class="btns"><button class="btn pri" id="fsave">Speichern</button><button class="btn" id="fcancel">Abbrechen</button></div>
+</div>
 <div class="foot">Quelle: Schweizer Nährwertdatenbank V 7.1 (01.07.2026), Bundesamt für Lebensmittelsicherheit und Veterinärwesen (BLV). Fehlt ein Wert in der Datenbank, wird er als 0 gezählt.<br>
 % = Anteil am Tagesbedarf eines Erwachsenen (EU-Referenzwert) pro 100 g. «Gute Quelle» ab 15 %.</div>
 <script>
@@ -80,12 +112,23 @@ const N=[
 const MAC=["p","b","f","sf","kh","z","s","kcal"];
 const GOOD=15; // % Tagesbedarf = «gute Quelle»
 let asc=false;
+/* ===== EIGENE DATEN (nur lokal im Browser-Speicher) ===== */
+const UKEY="naehrwerte-user";
+let U={own:[],fav:[],notes:{}};
+try{const s=JSON.parse(localStorage.getItem(UKEY));if(s)U=Object.assign(U,s)}catch(e){}
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+const saveU=()=>{try{localStorage.setItem(UKEY,JSON.stringify(U))}catch(e){alert("Speichern nicht möglich: "+e.message)}ustat()};
+const key=d=>d.u||d.n;
+const isFav=d=>U.fav.includes(key(d));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ALL=()=>U.own.concat(D);
+function ustat(){const e=document.getElementById("ustat");if(e)e.textContent=`${U.own.length} eigene Lebensmittel · ${U.fav.length} Favoriten · ${Object.keys(U.notes).length} Notizen`}
 
 const val=(d,k)=>MAC.includes(k)?d[k]:(d.m[k]||0);
 const pct=(d,n)=>val(d,n[0])/n[3]*100;
 const num=v=>v===0?"0":v<1?v.toLocaleString("de-CH",{maximumFractionDigits:2}):v<10?v.toLocaleString("de-CH",{maximumFractionDigits:1}):Math.round(v).toLocaleString("de-CH");
 
-const cats=["Alle",...new Set(D.map(d=>d.c))];let cur="Alle";let sel=[];
+const cats=["Alle","★ Favoriten","Eigene",...new Set(D.map(d=>d.c))];let cur="Alle";let sel=[];
 const C=document.getElementById("cats"),NU=document.getElementById("nuts"),L=document.getElementById("list"),Q=document.getElementById("q"),H=document.getElementById("hint");
 
 cats.forEach(c=>{const b=document.createElement("button");b.className="chip"+(c==cur?" on":"");b.textContent=c;
@@ -109,20 +152,29 @@ el.className="item"+(match?" match":"");
 const tags=sel.map(n=>{const pc=pct(d,n);return`<span class="tag${(asc?pc>=GOOD:pc<GOOD)?" low":""}">${n[1]} ${num(val(d,n[0]))} ${n[2]} · ${Math.round(pc)}%</span>`}).join("");
 const micro=N.filter(n=>!MAC.includes(n[0])&&val(d,n[0])>0)
  .map(n=>`<tr><td>${n[1]}</td><td class="pct">${Math.round(pct(d,n))}%</td><td>${num(val(d,n[0]))} ${n[2]}</td></tr>`).join("");
-el.innerHTML=`<div class="head"><div><div class="name">${d.n}</div><div class="kcal">${d.c}</div>${tags?`<div class="tags">${tags}</div>`:""}</div><div class="kcal">${num(d.kcal)} kcal</div></div>
+el.innerHTML=`<div class="head"><div><div class="name">${esc(d.n)}</div><div class="kcal">${esc(d.c)}${d.u?" · eigenes":""}</div>${U.notes[key(d)]?`<div class="note">📝 ${esc(U.notes[key(d)].split("\n")[0].slice(0,60))}</div>`:""}${tags?`<div class="tags">${tags}</div>`:""}</div><div class="hr"><div class="kcal">${num(d.kcal)} kcal</div><button class="star${isFav(d)?" on":""}" aria-label="Favorit">${isFav(d)?"★":"☆"}</button></div></div>
 <div class="det"><div class="bar"><span style="width:${d.p/t*100}%;background:#3b82c4"></span><span style="width:${d.f/t*100}%;background:#e0a33a"></span><span style="width:${d.kh/t*100}%;background:#2f9d5f"></span></div>
 <div class="leg"><span><i class="dot" style="background:#3b82c4"></i>Protein</span><span><i class="dot" style="background:#e0a33a"></i>Fett</span><span><i class="dot" style="background:#2f9d5f"></i>Kohlenhydrate</span></div>
 <table><tr><td>Energie</td><td></td><td>${d.kcal} kcal / ${Math.round(d.kcal*4.184)} kJ</td></tr>
 <tr><td>Protein</td><td></td><td>${num(d.p)} g</td></tr><tr><td>Fett</td><td></td><td>${num(d.f)} g</td></tr><tr><td>&nbsp;&nbsp;davon gesättigt</td><td></td><td>${num(d.sf)} g</td></tr>
 <tr><td>Kohlenhydrate</td><td></td><td>${num(d.kh)} g</td></tr><tr><td>&nbsp;&nbsp;davon Zucker</td><td></td><td>${num(d.z)} g</td></tr>
 <tr><td>Ballaststoffe</td><td></td><td>${num(d.b)} g</td></tr><tr><td>Salz</td><td></td><td>${num(d.s)} g</td></tr>
-${micro?`<tr class="sec"><td colspan="3">Vitamine &amp; Mineralstoffe</td></tr>${micro}`:""}</table></div>`;
-el.querySelector(".head").onclick=()=>el.classList.toggle("open");return{el,match};
+${micro?`<tr class="sec"><td colspan="3">Vitamine &amp; Mineralstoffe</td></tr>${micro}`:""}</table>
+<textarea placeholder="Notiz …">${esc(U.notes[key(d)]||"")}</textarea>
+${d.u?`<div class="btns"><button class="btn ed">Bearbeiten</button><button class="btn del">Löschen</button></div>`:""}</div>`;
+el.querySelector(".head").onclick=()=>el.classList.toggle("open");
+const st=el.querySelector(".star");st.onclick=e=>{e.stopPropagation();const k=key(d),i=U.fav.indexOf(k);
+ i<0?U.fav.push(k):U.fav.splice(i,1);saveU();st.classList.toggle("on",i<0);st.textContent=i<0?"★":"☆";if(cur=="★ Favoriten")draw()};
+el.querySelector("textarea").oninput=e=>{const v=e.target.value.trim();v?U.notes[key(d)]=e.target.value:delete U.notes[key(d)];saveU()};
+if(d.u){el.querySelector(".ed").onclick=()=>openForm(d);
+ el.querySelector(".del").onclick=()=>{if(!confirm(`«${d.n}» löschen?`))return;U.own=U.own.filter(x=>x.u!==d.u);
+  U.fav=U.fav.filter(k=>k!==d.u);delete U.notes[d.u];saveU();draw()}}
+return{el,match};
 }
 
 function draw(){
 const q=Q.value.trim().toLowerCase();L.innerHTML="";
-let r=D.filter(d=>(cur=="Alle"||d.c==cur)&&(d.n+" "+d.y).toLowerCase().includes(q));
+let r=ALL().filter(d=>(cur=="Alle"||(cur=="★ Favoriten"?isFav(d):cur=="Eigene"?!!d.u:d.c==cur))&&(d.n+" "+(d.y||"")+" "+(U.notes[key(d)]||"")).toLowerCase().includes(q));
 if(sel.length&&asc){
  const sum=d=>sel.reduce((a,n)=>a+pct(d,n),0);
  r.sort((a,b)=>sum(a)-sum(b));
@@ -143,6 +195,44 @@ r.forEach(d=>{const{el,match}=card(d);
 if(!r.length)L.innerHTML='<div class="sub">Nichts gefunden.</div>';
 }
 Q.oninput=draw;draw();document.getElementById("cnt").textContent=`${D.length} Lebensmittel · pro 100 g · Schweizer Nährwertdatenbank`;
+
+/* ===== Formular eigenes Lebensmittel ===== */
+let editing=null;
+const FF=document.getElementById("ffields");
+N.forEach(n=>{const r=document.createElement("div");r.className="fr";
+ r.innerHTML=`<label for="f_${n[0]}">${n[1]}</label><input id="f_${n[0]}" type="text" inputmode="decimal"><span>${n[2]}</span>`;FF.appendChild(r)});
+document.getElementById("catlist").innerHTML=[...new Set(D.map(d=>d.c))].map(c=>`<option value="${esc(c)}">`).join("");
+function openForm(d){editing=d||null;
+ document.getElementById("ftitle").textContent=d?"Lebensmittel bearbeiten":"Eigenes Lebensmittel";
+ document.getElementById("fn").value=d?d.n:"";document.getElementById("fc").value=d?d.c:"";
+ N.forEach(n=>{const v=d?val(d,n[0]):"";document.getElementById("f_"+n[0]).value=v?String(v).replace(".",","):""});
+ document.getElementById("form").classList.add("show");window.scrollTo(0,0)}
+document.getElementById("add").onclick=()=>openForm();
+document.getElementById("fcancel").onclick=()=>document.getElementById("form").classList.remove("show");
+document.getElementById("fsave").onclick=()=>{
+ const name=document.getElementById("fn").value.trim();if(!name){alert("Bitte einen Namen eingeben.");return}
+ const d={u:editing?editing.u:"u"+Date.now(),n:name,y:"",c:document.getElementById("fc").value.trim()||"Eigene",m:{}};
+ N.forEach(n=>{const v=parseFloat(document.getElementById("f_"+n[0]).value.replace(",","."))||0;
+  if(MAC.includes(n[0]))d[n[0]]=v;else if(v)d.m[n[0]]=v});
+ U.own=U.own.filter(x=>x.u!==d.u);U.own.unshift(d);saveU();
+ document.getElementById("form").classList.remove("show");draw()};
+
+/* ===== Export / Import ===== */
+document.getElementById("exp").onclick=async()=>{
+ const name=`naehrwerte-meine-daten-${new Date().toISOString().slice(0,10)}.json`;
+ const file=new File([JSON.stringify(U,null,1)],name,{type:"application/json"});
+ try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});return}}catch(e){if(e.name=="AbortError")return}
+ const a=document.createElement("a");a.href=URL.createObjectURL(file);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)};
+document.getElementById("imp").onclick=()=>document.getElementById("impf").click();
+document.getElementById("impf").onchange=async e=>{const f=e.target.files[0];if(!f)return;
+ try{const x=JSON.parse(await f.text());if(!Array.isArray(x.own))throw new Error("Keine gültige Sicherung");
+  const merge=confirm("Mit den vorhandenen Daten zusammenführen?\n\nOK = zusammenführen\nAbbrechen = vorhandene Daten ersetzen");
+  if(merge){const ids=new Set(x.own.map(d=>d.u));U.own=x.own.concat(U.own.filter(d=>!ids.has(d.u)));
+   U.fav=[...new Set(U.fav.concat(x.fav||[]))];U.notes=Object.assign({},U.notes,x.notes||{})}
+  else U={own:x.own,fav:x.fav||[],notes:x.notes||{}};
+  saveU();draw();alert("Import abgeschlossen.")}catch(err){alert("Import fehlgeschlagen: "+err.message)}
+ e.target.value=""};
+ustat();
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js");</script>
 </body>

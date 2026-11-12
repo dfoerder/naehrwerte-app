@@ -12,3 +12,7 @@ In Safari öffnen → Teilen → *Zum Home-Bildschirm*.
 
 ## Aktualisieren
 `index.html` ersetzen und in `sw.js` die Version erhöhen (`naehrwerte-v2` …).
+
+## Eigene Daten
+Eigene Lebensmittel, Favoriten und Notizen speichert die App im Browser-Speicher (localStorage) des Geräts – nicht in index.html und nicht auf GitHub.
+Sicherung: unten in der App «Sichern (Export)» → JSON-Datei; «Wiederherstellen (Import)» liest sie wieder ein.
