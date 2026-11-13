@@ -18,6 +18,9 @@
 body{margin:0;font:16px -apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);
 padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 24px)}
 h1{font-size:28px;margin:8px 0 4px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.fs{display:flex;gap:6px;flex:none}
+.fs button{min-width:40px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-weight:600;padding:0 8px}
 .sub{color:var(--mut);font-size:14px;margin-bottom:14px}
 .lbl{color:var(--mut);font-size:13px;font-weight:600;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.04em}
 input{width:100%;font-size:17px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);outline:none}
@@ -66,7 +69,7 @@ padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bott
 </style>
 </head>
 <body>
-<h1>Nährwerte</h1>
+<div class="top"><h1>Nährwerte</h1><div class="fs" aria-label="Schriftgrösse"><button id="fsm" aria-label="Schrift kleiner" style="font-size:13px">A−</button><button id="fsp" aria-label="Schrift grösser" style="font-size:19px">A+</button></div></div>
 <div class="sub" id="cnt">pro 100 g · Richtwerte</div>
 <input id="q" type="search" placeholder="Lebensmittel suchen …" autocomplete="off">
 <div class="btns"><button class="btn" id="add">+ Eigenes Lebensmittel</button></div>
@@ -233,6 +236,14 @@ document.getElementById("impf").onchange=async e=>{const f=e.target.files[0];if(
   saveU();draw();alert("Import abgeschlossen.")}catch(err){alert("Import fehlgeschlagen: "+err.message)}
  e.target.value=""};
 ustat();
+/* ===== Schriftgrösse (gespeichert auf dem Gerät) ===== */
+const FS=[.85,1,1.15,1.3,1.5,1.75];let fsi=1;
+try{const v=+localStorage.getItem("naehrwerte-fs");if(FS.includes(v))fsi=FS.indexOf(v)}catch(e){}
+function applyFs(){document.body.style.zoom=FS[fsi];try{localStorage.setItem("naehrwerte-fs",FS[fsi])}catch(e){}
+ document.getElementById("fsm").disabled=fsi==0;document.getElementById("fsp").disabled=fsi==FS.length-1}
+document.getElementById("fsm").onclick=()=>{if(fsi>0){fsi--;applyFs()}};
+document.getElementById("fsp").onclick=()=>{if(fsi<FS.length-1){fsi++;applyFs()}};
+applyFs();
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js");</script>
 </body>
