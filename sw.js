@@ -1,6 +1,6 @@
 // Version erhöhen, wenn index.html geändert wurde
-const V="naehrwerte-v3";
-const FILES=["./","index.html","manifest.json","icon-180.png","icon-192.png","icon-512.png"];
+const V="naehrwerte-v4";
+const FILES=["./","index.html","manifest.json","icon-180.png","icon-192.png","icon-512.png","bugs.js"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(FILES)));self.skipWaiting()});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))));self.clients.claim()});
 // Netz zuerst (immer aktuell), offline aus dem Cache

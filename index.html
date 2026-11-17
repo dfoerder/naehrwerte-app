@@ -68,9 +68,10 @@ padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bott
 #form .full{margin-bottom:10px}
 </style>
   <script data-goatcounter="https://dfoerder.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+  <script src="bugs.js" data-repo="dfoerder/naehrwerte-app" data-app="naehrwerte"></script>
 </head>
 <body>
-<div class="top"><h1>Nährwerte</h1><div class="fs" aria-label="Schriftgrösse"><button id="fsm" aria-label="Schrift kleiner" style="font-size:13px">A−</button><button id="fsp" aria-label="Schrift grösser" style="font-size:19px">A+</button></div></div>
+<div class="top"><h1 data-bug-tap>Nährwerte</h1><div class="fs" aria-label="Schriftgrösse"><button id="fsm" aria-label="Schrift kleiner" style="font-size:13px">A−</button><button id="fsp" aria-label="Schrift grösser" style="font-size:19px">A+</button></div></div>
 <div class="sub" id="cnt">pro 100 g · Richtwerte</div>
 <input id="q" type="search" placeholder="Lebensmittel suchen …" autocomplete="off">
 <div class="btns"><button class="btn" id="add">+ Eigenes Lebensmittel</button></div>
